@@ -25,6 +25,7 @@ package de.sitewaerts.cordova.documentviewer;
 
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -46,7 +47,7 @@ import java.io.OutputStream;
 public final class DocumentViewerPlugin
         extends CordovaPlugin
 {
-
+    public static final String SET_FILE = "de.sitewaerts.cordova.documentviewer.SET_FILE";
     private static final String TAG = "DocumentViewerPlugin";
 
     public static final class Actions
@@ -204,10 +205,12 @@ public final class DocumentViewerPlugin
             viewerOptions
                     .putString(TITLE_OPTIONS, options.getString(TITLE_OPTIONS));
 
-            this._open(url, contentType, packageId, activity,
-                    callbackContext,
-                    viewerOptions
-            );
+            // this._open(url, contentType, packageId, activity,
+            //         callbackContext,
+            //         viewerOptions
+            // );
+
+            this._open(url, callbackContext, viewerOptions);
         }
         else if (action.equals(Actions.INSTALL_VIEWER_APP))
         {
@@ -327,61 +330,44 @@ public final class DocumentViewerPlugin
         }
     }
 
-    private void _open(String url, String contentType, String packageId, String activity, CallbackContext callbackContext, Bundle viewerOptions)
+    private void _open(String url, CallbackContext callbackContext, Bundle viewerOptions)
             throws JSONException
     {
         clearTempFiles();
 
-        File file = getAccessibleFile(url);
 
-        if (file!=null && file.exists() && file.isFile())
+        try
         {
-            try
-            {
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                Uri path = Uri.fromFile(file);
+            Intent intent = new Intent(context, PDFViewerActivity.class);
+            // Uri path = Uri.fromFile(file);
+            // String path = stripFileProtocol(url);
 
-                // @see http://stackoverflow.com/questions/2780102/open-another-application-from-your-own-intent
-                intent.addCategory(Intent.CATEGORY_EMBED);
-                intent.setDataAndType(path, contentType);
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                intent.putExtra(this.getClass().getName(), viewerOptions);
-                //activity needs fully qualified name here
-                intent.setComponent(
-                        new ComponentName(packageId, packageId + "." + activity)
-                );
+            intent.putExtra(this.getClass().getName(), viewerOptions);
+            intent.putExtra(SET_FILE, url);
 
-                this.callbackContext = callbackContext;
-                this.cordova.startActivityForResult(this, intent,
-                        REQUEST_CODE_OPEN
-                );
+            this.callbackContext = callbackContext;
+            this.cordova.startActivityForResult(this, intent,
+                    REQUEST_CODE_OPEN
+            );
 
-                // send shown event
-                JSONObject successObj = new JSONObject();
-                successObj.put(Result.STATUS, PluginResult.Status.OK.ordinal());
-                PluginResult result = new PluginResult(PluginResult.Status.OK,
-                        successObj
-                );
-                // need to keep callback for close event
-                result.setKeepCallback(true);
-                callbackContext.sendPluginResult(result);
-            }
-            catch (android.content.ActivityNotFoundException e)
-            {
-                JSONObject errorObj = new JSONObject();
-                errorObj.put(Result.STATUS, PluginResult.Status.ERROR.ordinal()
-                );
-                errorObj.put(Result.MESSAGE,
-                        "Activity not found: " + e.getMessage()
-                );
-                callbackContext.error(errorObj);
-            }
+            // send shown event
+            JSONObject successObj = new JSONObject();
+            successObj.put(Result.STATUS, PluginResult.Status.OK.ordinal());
+            PluginResult result = new PluginResult(PluginResult.Status.OK,
+                    successObj
+            );
+            // need to keep callback for close event
+            result.setKeepCallback(true);
+            callbackContext.sendPluginResult(result);
         }
-        else
+        catch (android.content.ActivityNotFoundException e)
         {
             JSONObject errorObj = new JSONObject();
-            errorObj.put(Result.STATUS, PluginResult.Status.ERROR.ordinal());
-            errorObj.put(Result.MESSAGE, "File not found");
+            errorObj.put(Result.STATUS, PluginResult.Status.ERROR.ordinal()
+            );
+            errorObj.put(Result.MESSAGE,
+                    "Activity not found: " + e.getMessage()
+            );
             callbackContext.error(errorObj);
         }
     }
@@ -501,71 +487,49 @@ public final class DocumentViewerPlugin
     {
         if (fileArg.startsWith(ASSETS))
         {
-            String filePath = fileArg.substring(ASSETS.length());
-            String fileName = filePath.substring(
-                    filePath.lastIndexOf(File.pathSeparator) + 1);
+            Log.v(TAG, "Opening: " + fileArg);
+            return new File(fileArg);
 
-            //Log.d(TAG, "Handling assets file: fileArg: " + fileArg + ", filePath: " + filePath + ", fileName: " + fileName);
+            // String filePath = fileArg.substring(ASSETS.length());
+            // String fileName = filePath.substring(
+            //         filePath.lastIndexOf(File.pathSeparator) + 1);
 
-            try
-            {
-                File tmpFile = getSharedTempFile(fileName);
-                InputStream in;
-                try
-                {
-                    in = this.cordova.getActivity().getAssets().open(filePath);
-                    if (in == null)
-                        return null;
-                }
-                catch (IOException e)
-                {
-                    // not found
-                    return null;
-                }
-                copyFile(in, tmpFile);
-                tmpFile.deleteOnExit();
-                return tmpFile;
-            }
-            catch (IOException e)
-            {
-                Log.e(TAG, "Failed to copy file: " + filePath, e);
-                JSONException je = new JSONException(e.getMessage());
-                je.initCause(e);
-                throw je;
-            }
+            // //Log.d(TAG, "Handling assets file: fileArg: " + fileArg + ", filePath: " + filePath + ", fileName: " + fileName);
+
+            // try
+            // {
+            //     File tmpFile = getSharedTempFile(fileName);
+            //     InputStream in;
+            //     try
+            //     {
+            //         in = this.cordova.getActivity().getAssets().open(filePath);
+            //         if (in == null)
+            //             return null;
+            //     }
+            //     catch (IOException e)
+            //     {
+            //         // not found
+            //         return null;
+            //     }
+            //     copyFile(in, tmpFile);
+            //     tmpFile.deleteOnExit();
+            //     return tmpFile;
+            // }
+            // catch (IOException e)
+            // {
+            //     Log.e(TAG, "Failed to copy file: " + filePath, e);
+            //     JSONException je = new JSONException(e.getMessage());
+            //     je.initCause(e);
+            //     throw je;
+            // }
         }
         else
         {
+            Log.v(TAG, "Opening: " + fileArg);
             File file = getFile(fileArg);
             if (!file.exists() || !file.isFile())
                 return null;
 
-            // detect private files, copy to accessible tmp dir if necessary
-            // XXX does this condition cover all cases?
-            if (file.getAbsolutePath().contains(
-                    cordova.getActivity().getFilesDir().getAbsolutePath()
-            ))
-            {
-//            		XXX this is the "official" way to share private files with other apps: with a content:// URI. Unfortunately, MuPDF does not swallow the generated URI. :(
-//            		path = FileProvider.getUriForFile(cordova.getActivity(), "de.sitewaerts.cordova.fileprovider", file);
-//            		cordova.getActivity().grantUriPermission(packageId, path, Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-//            		intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-
-                try
-                {
-                    File tmpFile = getSharedTempFile(file.getName());
-                    copyFile(file, tmpFile);
-                    tmpFile.deleteOnExit();
-                    return tmpFile;
-                }
-                catch (IOException e)
-                {
-                    Log.e(TAG, "Failed to copy file: " + file.getName(), e);
-                    JSONException je = new JSONException(e.getMessage());
-                    je.initCause(e);
-                    throw je;
-                }
-            }
 
             return file;
         }
@@ -623,16 +587,17 @@ public final class DocumentViewerPlugin
 
     private boolean _appIsInstalled(String packageId)
     {
-        PackageManager pm = cordova.getActivity().getPackageManager();
-        try
-        {
-            pm.getPackageInfo(packageId, PackageManager.GET_ACTIVITIES);
-            return true;
-        }
-        catch (PackageManager.NameNotFoundException e)
-        {
-            return false;
-        }
+        return true;
+        // PackageManager pm = cordova.getActivity().getPackageManager();
+        // try
+        // {
+        //     pm.getPackageInfo(packageId, PackageManager.GET_ACTIVITIES);
+        //     return true;
+        // }
+        // catch (PackageManager.NameNotFoundException e)
+        // {
+        //     return false;
+        // }
     }
 
     private String stripFileProtocol(String uriString)
