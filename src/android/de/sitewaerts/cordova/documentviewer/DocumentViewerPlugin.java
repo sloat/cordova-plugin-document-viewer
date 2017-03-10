@@ -338,6 +338,7 @@ public final class DocumentViewerPlugin
 
         try
         {
+            Context context = cordova.getActivity().getApplicationContext();
             Intent intent = new Intent(context, PDFViewerActivity.class);
             // Uri path = Uri.fromFile(file);
             // String path = stripFileProtocol(url);
